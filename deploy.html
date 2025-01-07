@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link
+      href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css"
+      rel="stylesheet"
+    />
+<style>
+    * {
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+}
+
+</style>
+
+
+  </head>
+  <body>
+    <div id="wrapper"></div>
+
+    <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+    <script>
+    // $RallyContext:Begin
+    // $RallyContext:End
+    </script>
+    <script >
+
+
+var config = {
+    type: "Defect",
+    xAxis: "State",
+    yAxis: "Project.Name",
+    yAxisLabel:  'Project',
+    xAxisLabel: null,
+    includeBlanks: true,
+    includeRowTotals: true,
+    includeColTotals: true,
+    sortAlpha: true, 
+    sortDirection: "Desc",
+    maxRows: -1,
+    pageSize: 2000,
+    fetch: "Name,State,Project",
+    query: "(ObjectID > 0)" 
+}
+
+if ($RallyContext.ViewFilter.Type == 'Release'){
+    config.query = `(Release.Name = "${$RallyContext.ViewFilter.Value.Name}")`
+}
+if ($RallyContext.ViewFilter.Type == 'Iteration'){
+    config.query = `(Iteration.Name = "${$RallyContext.ViewFilter.Value.Name}")`
+}
+
+
+var url = `/slm/webservice/v2.0/${config.type}?project=${$RallyContext.GlobalScope.Project._ref}&projectScopeDown=${$RallyContext.GlobalScope.ProjectScopeDown}&projectScopeUp=${$RallyContext.GlobalScope.ProjectScopeUp}&pagesize=${config.pageSize}&fetch=${config.fetch}&query=${config.query}`;
+var matrix = [];
+var xProperties = config.xAxis.split('.'),
+    yProperties = config.yAxis.split('.'),
+    columns = [], rows=[];
+
+fetch(url)
+.then(response => {return response.json()})
+.then(queryResult => { 
+    console.log('queryResult',queryResult); 
+    queryResult.QueryResult.Results.forEach(workItem => {
+        console.log('workitem',workItem,xProperties,yProperties)
+        var xVal = workItem, yVal = workItem;
+        console.log('xVal',xVal,'yVal',yVal)
+        xProperties.forEach(prop => { xVal = xVal[prop] || 'None' }); //todo - what if the field is null? 
+        yProperties.forEach(prop => { yVal = yVal[prop] || 'None' });
+        if (!matrix[xVal]){ matrix[xVal] = []; columns.push(xVal)}
+        if (!matrix[xVal][yVal]){ 
+            matrix[xVal][yVal] = 0; 
+            if (!rows.includes(yVal)) {rows.push(yVal)}
+        }
+        matrix[xVal][yVal]++;
+        
+    })
+    console.log('matrix', matrix, columns, rows)
+
+    data = [];
+    rows.forEach(row => {
+        rowData = [row];
+        columns.forEach(column => {
+            rowData.push(matrix[column][row] || 0)
+        })
+        data.push(rowData);
+    })
+    console.log('data',data)
+    columns.unshift(config.yAxisLabel || config.yAxis)
+    const grid = new gridjs.Grid({
+        columns: columns,
+        data: data,
+        search: true,
+        sort: true
+}).render(document.getElementById("wrapper"));
+
+});
+
+
+
+    </script>
+
+
+  </body>
+</html>
